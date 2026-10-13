@@ -14,6 +14,7 @@ Endpoints (base: https://api.productfruits.com):
 """
 
 import os
+import subprocess
 import sys
 from mcp.server.fastmcp import FastMCP
 
@@ -24,10 +25,34 @@ import httpx
 # ---------------------------------------------------------------------------
 
 API_BASE = "https://api.productfruits.com"
-API_KEY = os.environ.get("PRODUCTFRUITS_API_KEY", "")
+PASS_ENTRY = "mcp/productfruits-api-key"
+
+
+def resolve_api_key(environ=os.environ, run=subprocess.run) -> str:
+    key = environ.get("PRODUCTFRUITS_API_KEY", "").strip()
+    if key:
+        return key
+    try:
+        result = run(
+            ["pass", "show", PASS_ENTRY],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip()
+
+
+API_KEY = resolve_api_key()
 
 if not API_KEY:
-    print("PRODUCTFRUITS_API_KEY environment variable is required", file=sys.stderr)
+    print(
+        "PRODUCTFRUITS_API_KEY is not set and `pass show "
+        f"{PASS_ENTRY}` returned nothing",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 HEADERS = {
